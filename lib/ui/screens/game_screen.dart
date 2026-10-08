@@ -12,6 +12,7 @@ import '../../services/audio_service.dart';
 import '../theme.dart';
 import '../widgets/board_painter.dart';
 import '../widgets/common.dart';
+import '../widgets/mascot.dart';
 import '../widgets/shape_icon.dart';
 import 'help_screen.dart';
 
@@ -20,15 +21,15 @@ class GameScreen extends StatefulWidget {
   final int levelNumber;
 
   static Route<void> route(int level) => PageRouteBuilder(
-        pageBuilder: (_, _, _) => GameScreen(levelNumber: level),
-        transitionsBuilder: (_, anim, _, child) => FadeTransition(
-          opacity: anim,
-          child: ScaleTransition(
-            scale: Tween(begin: 0.96, end: 1.0).animate(anim),
-            child: child,
-          ),
-        ),
-      );
+    pageBuilder: (_, _, _) => GameScreen(levelNumber: level),
+    transitionsBuilder: (_, anim, _, child) => FadeTransition(
+      opacity: anim,
+      child: ScaleTransition(
+        scale: Tween(begin: 0.96, end: 1.0).animate(anim),
+        child: child,
+      ),
+    ),
+  );
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -50,6 +51,23 @@ class _GameScreenState extends State<GameScreen>
   double flashStart = 0;
   bool _ended = false;
 
+  /// What the mascot is saying right now, if anything.
+  String? _buddyText;
+  MascotPose _buddyPose = MascotPose.wave;
+  Timer? _buddyTimer;
+  bool _cheeredHalfway = false;
+
+  void _say(String text, MascotPose pose, {int ms = 2200}) {
+    _buddyTimer?.cancel();
+    setState(() {
+      _buddyText = text;
+      _buddyPose = pose;
+    });
+    _buddyTimer = Timer(Duration(milliseconds: ms), () {
+      if (mounted) setState(() => _buddyText = null);
+    });
+  }
+
   AppState get app => AppScope.read(context);
   double get _now => _watch.elapsedMicroseconds / 1e6;
 
@@ -61,7 +79,17 @@ class _GameScreenState extends State<GameScreen>
     _secondTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && !game.over) setState(() {});
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _greet();
+    });
   }
+
+  void _greet() => _say(
+    level.number == 1
+        ? 'Tap an arrow with a clear path!'
+        : 'Level ${level.number}. You got this!',
+    MascotPose.wave,
+  );
 
   void _reset() {
     game = GameState(level);
@@ -70,6 +98,7 @@ class _GameScreenState extends State<GameScreen>
     hintId = null;
     flashIds = {};
     _ended = false;
+    _cheeredHalfway = false;
     _playTime.reset();
     _playTime.start();
   }
@@ -87,7 +116,8 @@ class _GameScreenState extends State<GameScreen>
     if (hintId != null && now - hintStart > 4) hintId = null;
     clock.value = now;
     // Only run while something is moving or glowing, to save battery.
-    final active = motions.isNotEmpty || hintId != null || now - flashStart < 0.7;
+    final active =
+        motions.isNotEmpty || hintId != null || now - flashStart < 0.7;
     if (!active) _ticker.stop();
   }
 
@@ -99,6 +129,7 @@ class _GameScreenState extends State<GameScreen>
   void dispose() {
     _ticker.dispose();
     _secondTimer?.cancel();
+    _buddyTimer?.cancel();
     clock.dispose();
     super.dispose();
   }
@@ -128,7 +159,21 @@ class _GameScreenState extends State<GameScreen>
         );
         _animate();
         setState(() {});
-        if (game.won) _finish(won: true);
+        if (game.won) {
+          _buddyTimer?.cancel();
+          _buddyText = null;
+          _finish(won: true);
+        } else if (!_cheeredHalfway &&
+            game.cleared * 2 >= game.total &&
+            game.total >= 6) {
+          _cheeredHalfway = true;
+          _say(
+            game.mistakes == 0
+                ? 'Halfway there, no mistakes!'
+                : 'Halfway there!',
+            MascotPose.thumbsUp,
+          );
+        }
       case TapBlocked(:final arrow, :final blocker, :final distance):
         app.audio.play(Sfx.wrong);
         HapticFeedback.heavyImpact();
@@ -142,7 +187,15 @@ class _GameScreenState extends State<GameScreen>
         flashStart = _now;
         _animate();
         setState(() {});
-        if (game.lost) _finish(won: false);
+        if (game.lost) {
+          _buddyTimer?.cancel();
+          _buddyText = null;
+          _finish(won: false);
+        } else if (game.hearts == 1) {
+          _say('Careful, last heart!', MascotPose.sad);
+        } else {
+          _say('Oops! Something is in the way.', MascotPose.sad);
+        }
     }
   }
 
@@ -186,7 +239,8 @@ class _GameScreenState extends State<GameScreen>
     if (!mounted) return;
     switch (choice) {
       case _EndChoice.next:
-        Navigator.of(context).pushReplacement(GameScreen.route(level.number + 1));
+        Navigator.of(context)
+            .pushReplacement(GameScreen.route(level.number + 1));
       case _EndChoice.retry:
         setState(_reset);
       case _EndChoice.map:
@@ -202,10 +256,12 @@ class _GameScreenState extends State<GameScreen>
     if (hintId == target.id) return; // already showing
     if (!await app.useHint()) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('No hints left. Clear a new level to earn one!'),
-        behavior: SnackBarBehavior.floating,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No hints left. Clear a new level to earn one!'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return;
     }
     app.audio.play(Sfx.hint);
@@ -213,6 +269,7 @@ class _GameScreenState extends State<GameScreen>
       hintId = target.id;
       hintStart = _now;
     });
+    _say('Tap the glowing arrow!', MascotPose.point, ms: 3000);
     _animate();
   }
 
@@ -221,16 +278,24 @@ class _GameScreenState extends State<GameScreen>
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Restart level?', style: TextStyle(color: AppColors.ink)),
-        content: const Text('Your progress on this level will be reset.',
-            style: TextStyle(color: AppColors.ink)),
+        title: const Text('Restart level?'),
+        content: const Text('Your progress on this level will be reset.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Restart')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Restart'),
+          ),
         ],
       ),
     );
-    if (ok == true) setState(_reset);
+    if (ok == true) {
+      setState(_reset);
+      _greet();
+    }
   }
 
   @override
@@ -243,134 +308,194 @@ class _GameScreenState extends State<GameScreen>
       body: GradientBackground(
         drift: false,
         child: SafeArea(
-          child: Column(
+          child: Stack(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                child: Row(
-                  children: [
-                    RoundButton(
-                      icon: Icons.arrow_back_rounded,
-                      size: 44,
-                      tooltip: 'Back to road',
-                      onTap: () => Navigator.of(context).pop(),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('LEVEL ${level.number}',
-                              style: const TextStyle(
+              Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                    child: Row(
+                      children: [
+                        RoundButton(
+                          icon: Icons.arrow_back_rounded,
+                          size: 44,
+                          tooltip: 'Back to road',
+                          onTap: () => Navigator.of(context).pop(),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'LEVEL ${level.number}',
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 24,
                                   fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.5)),
-                          Row(
-                            children: [
-                              ShapeIcon(shape: shape, size: 13, color: Colors.white70),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(shape.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                              ),
-                              const SizedBox(width: 12),
-                              const Icon(Icons.timer_outlined, size: 14, color: Colors.white70),
-                              const SizedBox(width: 3),
-                              Text(timeText,
-                                  style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    HeartsRow(hearts: game.hearts, max: game.maxHearts),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-              _LevelStrip(current: level.number, unlocked: state.unlocked),
-              const SizedBox(height: 10),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _ProgressBar(cleared: game.cleared, total: game.total),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.board,
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 24,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(14),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: InteractiveViewer(
-                        maxScale: 3,
-                        child: LayoutBuilder(builder: (context, box) {
-                          final size = box.biggest;
-                          return GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTapUp: (d) => _onTap(d.localPosition, size),
-                            child: CustomPaint(
-                              size: size,
-                              painter: BoardPainter(
-                                BoardScene(
-                                  level: level,
-                                  arrows: tracks.values,
-                                  motions: motions,
-                                  clock: clock,
-                                  hintId: hintId,
-                                  hintStart: hintStart,
-                                  flashIds: flashIds,
-                                  flashStart: flashStart,
+                                  letterSpacing: 1.5,
                                 ),
                               ),
+                              Row(
+                                children: [
+                                  ShapeIcon(
+                                    shape: shape,
+                                    size: 13,
+                                    color: Colors.white70,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      shape.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Icon(
+                                    Icons.timer_outlined,
+                                    size: 14,
+                                    color: Colors.white70,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    timeText,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        HeartsRow(hearts: game.hearts, max: game.maxHearts),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _LevelStrip(current: level.number, unlocked: state.unlocked),
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _ProgressBar(
+                      cleared: game.cleared,
+                      total: game.total,
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: context.palette.board,
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 24,
+                              offset: const Offset(0, 10),
                             ),
-                          );
-                        }),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(14),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: InteractiveViewer(
+                            maxScale: 3,
+                            child: LayoutBuilder(
+                              builder: (context, box) {
+                                final size = box.biggest;
+                                return GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTapUp: (d) => _onTap(d.localPosition, size),
+                                  child: CustomPaint(
+                                    size: size,
+                                    painter: BoardPainter(
+                                      BoardScene(
+                                        level: level,
+                                        arrows: tracks.values,
+                                        motions: motions,
+                                        clock: clock,
+                                        hintId: hintId,
+                                        hintStart: hintStart,
+                                        flashIds: flashIds,
+                                        flashStart: flashStart,
+                                        dotColor: context.palette.dot,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        RoundButton(
+                          icon: Icons.help_outline_rounded,
+                          tooltip: 'How to play',
+                          size: 54,
+                          onTap: () => showHelpSheet(context),
+                        ),
+                        RoundButton(
+                          icon: Icons.lightbulb_rounded,
+                          tooltip: 'Hint',
+                          size: 66,
+                          color: AppColors.gold,
+                          iconColor: Colors.white,
+                          badge: '${state.hints}',
+                          onTap: _useHint,
+                        ),
+                        RoundButton(
+                          icon: Icons.refresh_rounded,
+                          tooltip: 'Restart',
+                          size: 54,
+                          onTap: _confirmRestart,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    RoundButton(
-                      icon: Icons.help_outline_rounded,
-                      tooltip: 'How to play',
-                      size: 54,
-                      onTap: () => showHelpSheet(context),
+              // The mascot pops up to cheer, warn and give hints.
+              Positioned(
+                left: 6,
+                right: 40,
+                bottom: 82,
+                child: IgnorePointer(
+                  child: AnimatedSlide(
+                    offset: _buddyText == null
+                        ? const Offset(-1.2, 0)
+                        : Offset.zero,
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.easeOutBack,
+                    child: AnimatedOpacity(
+                      opacity: _buddyText == null ? 0 : 1,
+                      duration: const Duration(milliseconds: 250),
+                      child: Align(
+                        alignment: Alignment.bottomLeft,
+                        child: MascotSays(
+                          text: _buddyText ?? '',
+                          pose: _buddyPose,
+                          size: 84,
+                          bubbleColor: context.palette.surface,
+                          textColor: context.palette.ink,
+                        ),
+                      ),
                     ),
-                    RoundButton(
-                      icon: Icons.lightbulb_rounded,
-                      tooltip: 'Hint',
-                      size: 66,
-                      color: AppColors.gold,
-                      iconColor: Colors.white,
-                      badge: '${state.hints}',
-                      onTap: _useHint,
-                    ),
-                    RoundButton(
-                      icon: Icons.refresh_rounded,
-                      tooltip: 'Restart',
-                      size: 54,
-                      onTap: _confirmRestart,
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -398,7 +523,10 @@ class _ProgressBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             child: Stack(
               children: [
-                Container(height: 12, color: Colors.white.withValues(alpha: 0.18)),
+                Container(
+                  height: 12,
+                  color: Colors.white.withValues(alpha: 0.18),
+                ),
                 AnimatedFractionallySizedBox(
                   duration: const Duration(milliseconds: 300),
                   widthFactor: f,
@@ -406,7 +534,11 @@ class _ProgressBar extends StatelessWidget {
                     height: 12,
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFF06D6A0), Color(0xFFFFC300), Color(0xFFFF4D6D)],
+                        colors: [
+                          Color(0xFF06D6A0),
+                          Color(0xFFFFC300),
+                          Color(0xFFFF4D6D),
+                        ],
                       ),
                     ),
                   ),
@@ -416,8 +548,13 @@ class _ProgressBar extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        Text('$cleared / $total',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+        Text(
+          '$cleared / $total',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ],
     );
   }
@@ -459,7 +596,11 @@ class _LevelStrip extends StatelessWidget {
 }
 
 class _StripNode extends StatelessWidget {
-  const _StripNode({required this.level, required this.current, required this.unlocked});
+  const _StripNode({
+    required this.level,
+    required this.current,
+    required this.unlocked,
+  });
   final int level;
   final int current;
   final int unlocked;
@@ -479,19 +620,22 @@ class _StripNode extends StatelessWidget {
         color: isCurrent
             ? AppColors.heart
             : done
-                ? AppColors.gold
-                : Colors.white.withValues(alpha: locked ? 0.15 : 0.35),
+            ? AppColors.gold
+            : Colors.white.withValues(alpha: locked ? 0.15 : 0.35),
         border: Border.all(color: Colors.white, width: isCurrent ? 3 : 1.5),
       ),
       child: done
           ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
           : locked
-              ? const Icon(Icons.lock_rounded, size: 13, color: Colors.white70)
-              : Text('$level',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: isCurrent ? 13 : 11)),
+          ? const Icon(Icons.lock_rounded, size: 13, color: Colors.white70)
+          : Text(
+              '$level',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: isCurrent ? 13 : 11,
+              ),
+            ),
     );
   }
 }
@@ -529,13 +673,24 @@ class _WinDialog extends StatelessWidget {
               colors: [Color(0xFF7C3AED), Color(0xFF0E7490)],
             ),
             borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 3),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.5),
+              width: 3,
+            ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const GradientText('LEVEL\nCOMPLETE!',
-                  style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, height: 1.05)),
+              const Mascot(pose: MascotPose.cheer, size: 104),
+              const SizedBox(height: 6),
+              const GradientText(
+                'LEVEL\nCOMPLETE!',
+                style: TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w900,
+                  height: 1.05,
+                ),
+              ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -544,28 +699,44 @@ class _WinDialog extends StatelessWidget {
                     tween: Tween(begin: 0, end: 1),
                     duration: Duration(milliseconds: 500 + i * 250),
                     curve: Curves.elasticOut,
-                    builder: (_, v, child) => Transform.scale(scale: v, child: child),
+                    builder: (_, v, child) =>
+                        Transform.scale(scale: v, child: child),
                     child: Padding(
                       padding: EdgeInsets.only(bottom: i == 1 ? 14 : 0),
                       child: Icon(
-                        i < stars ? Icons.star_rounded : Icons.star_outline_rounded,
+                        i < stars
+                            ? Icons.star_rounded
+                            : Icons.star_outline_rounded,
                         size: i == 1 ? 72 : 56,
                         color: i < stars ? AppColors.gold : Colors.white38,
-                        shadows: const [Shadow(color: Colors.black38, blurRadius: 8)],
+                        shadows: const [
+                          Shadow(color: Colors.black38, blurRadius: 8),
+                        ],
                       ),
                     ),
                   );
                 }),
               ),
               const SizedBox(height: 8),
-              Text('Score  $score',
-                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
-              Text('Time ${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 15)),
+              Text(
+                'Score  $score',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                'Time ${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')}',
+                style: const TextStyle(color: Colors.white70, fontSize: 15),
+              ),
               if (bonusHint) ...[
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(14),
@@ -573,10 +744,19 @@ class _WinDialog extends StatelessWidget {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.lightbulb_rounded, color: AppColors.gold, size: 18),
+                      Icon(
+                        Icons.lightbulb_rounded,
+                        color: AppColors.gold,
+                        size: 18,
+                      ),
                       SizedBox(width: 6),
-                      Text('+1 hint earned',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                      Text(
+                        '+1 hint earned',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -632,19 +812,30 @@ class _LoseDialog extends StatelessWidget {
               colors: [Color(0xFFBE123C), Color(0xFF581C87)],
             ),
             borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 3),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.5),
+              width: 3,
+            ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.heart_broken_rounded, size: 80, color: Colors.white),
+              const Mascot(pose: MascotPose.sad, size: 104),
               const SizedBox(height: 8),
-              const Text('OUT OF HEARTS',
-                  style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),
+              const Text(
+                'OUT OF HEARTS',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
               const SizedBox(height: 6),
-              Text('Level $level needs a clear path.\nCheck where each arrow points!',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70, fontSize: 15)),
+              Text(
+                'Level $level needs a clear path.\nCheck where each arrow points!',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70, fontSize: 15),
+              ),
               const SizedBox(height: 22),
               GameButton(
                 label: 'TRY AGAIN',
@@ -657,7 +848,10 @@ class _LoseDialog extends StatelessWidget {
               TextButton.icon(
                 onPressed: () => Navigator.pop(context, _EndChoice.map),
                 icon: const Icon(Icons.map_rounded, color: Colors.white),
-                label: const Text('Back to road', style: TextStyle(color: Colors.white)),
+                label: const Text(
+                  'Back to road',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),

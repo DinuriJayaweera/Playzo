@@ -18,6 +18,8 @@ Tap an arrow to slide it off the dotted board. Arrows only move up, down, left o
 - **Leaderboard.** A podium and ranking of every player on the device, by total best score.
 - **Music and sound effects.** An original looping chiptune and effects for taps, escapes, mistakes, wins and hints. Each can be turned on or off.
 - **Help.** A how-to-play sheet, shown automatically on first launch and available from the game screen.
+- **Arrowy, the mascot.** A cheerful yellow arrow character, drawn in code, who waves hello on the home screen, stands at your current level on the road, points at hints, cheers when you win, gets sad on mistakes, explains the rules and asks your name on first launch. Arrowy is also the app icon.
+- **Dark mode.** Choose Light, Dark or Auto (follows the phone) in Settings, or flip it with the sun/moon button on the home screen. The choice is saved.
 - **Multiple players.** Create players and switch between them; each has their own progress.
 - **Pinch to zoom** on big boards.
 
@@ -43,8 +45,8 @@ lib/
   data/game_repository.dart     SQLite (sqflite) persistence
   services/audio_service.dart   music + sound effects (audioplayers)
   ui/
-    theme.dart                  colours and theme
-    widgets/                    board painter, buttons, hearts, shape icons
+    theme.dart                  light and dark palettes, theme
+    widgets/                    board painter, buttons, hearts, shape icons, mascot
     screens/                    home, level road, game, leaderboard, help, settings
 assets/audio/                   generated music and sound effects
 tool/generate_audio.py          re-creates assets/audio (needs numpy + ffmpeg)
@@ -66,6 +68,6 @@ Removing the arrows in the reverse of the placement order always works. Removing
 |-----------------|-------------------------------------------------------------------------|
 | `players`       | `id`, `name` (unique), `hints`, `created_at`                             |
 | `level_results` | `player_id`, `level`, `stars`, `best_score`, `best_time_ms`, `completed_at` |
-| `settings`      | `key`, `value` (current player, music, sound effects, help seen)         |
+| `settings`      | `key`, `value` (current player, music, sound effects, theme, help seen)  |
 
 The leaderboard is a `GROUP BY` over `level_results`. It's local to the device; an online leaderboard would need a backend (for example Supabase/Postgres or Firebase) to sync these tables.

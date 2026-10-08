@@ -73,7 +73,8 @@ Level generateLevel(int level) {
     ..sort((a, b) => a.x != b.x ? a.x - b.x : a.y - b.y);
   final keys = {
     for (final c in order)
-      c: sqrt(pow(c.x + 0.5 - cx, 2) + pow(c.y + 0.5 - cy, 2)) / maxDist +
+      c:
+          sqrt(pow(c.x + 0.5 - cx, 2) + pow(c.y + 0.5 - cy, 2)) / maxDist +
           rnd.nextDouble() * diff.shuffle,
   };
   order.sort((a, b) => keys[a]!.compareTo(keys[b]!));
@@ -119,8 +120,9 @@ Level generateLevel(int level) {
     List<Cell>? cells;
     Dir? dir;
     for (var attempt = 0; attempt < 14 && cells == null; attempt++) {
-      final target =
-          diff.maxLength <= 2 ? 2 : 2 + rnd.nextInt(diff.maxLength - 1);
+      final target = diff.maxLength <= 2
+          ? 2
+          : 2 + rnd.nextInt(diff.maxLength - 1);
       final path = grow(start, target);
       if (path.length < 2) break;
       final own = path.toSet();
@@ -149,12 +151,14 @@ Level generateLevel(int level) {
     if (cells == null) continue; // leave a small gap in the shape
 
     occupied.addAll(cells);
-    arrows.add(Arrow(
-      id: arrows.length,
-      cells: cells,
-      dir: dir!,
-      colorIndex: rnd.nextInt(1 << 16),
-    ));
+    arrows.add(
+      Arrow(
+        id: arrows.length,
+        cells: cells,
+        dir: dir!,
+        colorIndex: rnd.nextInt(1 << 16),
+      ),
+    );
   }
 
   _fillGaps(arrows, mask, occupied, width, height);
@@ -173,8 +177,13 @@ Level generateLevel(int level) {
 /// cell. Arrows leave in reverse placement order, so this is only allowed when
 /// every arrow escaping through the gap was placed before (leaves after) the
 /// extended arrow.
-void _fillGaps(List<Arrow> arrows, Set<Cell> mask, Set<Cell> occupied,
-    int width, int height) {
+void _fillGaps(
+  List<Arrow> arrows,
+  Set<Cell> mask,
+  Set<Cell> occupied,
+  int width,
+  int height,
+) {
   var changed = true;
   while (changed) {
     changed = false;

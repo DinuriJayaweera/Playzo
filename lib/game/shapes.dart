@@ -37,8 +37,12 @@ bool _inPolygon(double u, double v, List<Point<double>> poly) {
   return inside;
 }
 
-List<Point<double>> _regular(int points, double radius, double rotation,
-    {double innerRadius = 0}) {
+List<Point<double>> _regular(
+  int points,
+  double radius,
+  double rotation, {
+  double innerRadius = 0,
+}) {
   final total = innerRadius > 0 ? points * 2 : points;
   return List.generate(total, (i) {
     final r = innerRadius > 0 && i.isOdd ? innerRadius : radius;

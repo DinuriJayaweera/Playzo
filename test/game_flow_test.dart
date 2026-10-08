@@ -19,8 +19,9 @@ class SilentAudio extends AudioService {
 }
 
 void main() {
-  testWidgets('playing level 1 through to the win dialog saves progress',
-      (tester) async {
+  testWidgets('playing level 1 through to the win dialog saves progress', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -29,32 +30,39 @@ void main() {
     await tester.runAsync(() async {
       sqfliteFfiInit();
       final repo = await GameRepository.open(
-          factory: databaseFactoryFfi, path: inMemoryDatabasePath);
+        factory: databaseFactoryFfi,
+        path: inMemoryDatabasePath,
+      );
       app = AppState(repo, SilentAudio());
       await app.load();
       await app.createPlayer('Tester');
     });
 
-    await tester.pumpWidget(AppScope(
-      state: app,
-      child: MaterialApp(
-        theme: buildTheme(),
-        home: const GameScreen(levelNumber: 1),
+    await tester.pumpWidget(
+      AppScope(
+        state: app,
+        child: MaterialApp(
+          theme: buildTheme(Brightness.light),
+          home: const GameScreen(levelNumber: 1),
+        ),
       ),
-    ));
+    );
     await tester.pump();
 
     final level = generateLevel(1);
     final board = find.byWidgetPredicate(
-        (w) => w is CustomPaint && w.painter is BoardPainter);
+      (w) => w is CustomPaint && w.painter is BoardPainter,
+    );
     final rect = tester.getRect(board);
     Offset at(Cell c) {
       final size = rect.size;
       final cell = (size.width / level.width) < (size.height / level.height)
           ? size.width / level.width
           : size.height / level.height;
-      final origin = Offset((size.width - cell * level.width) / 2,
-          (size.height - cell * level.height) / 2);
+      final origin = Offset(
+        (size.width - cell * level.width) / 2,
+        (size.height - cell * level.height) / 2,
+      );
       return rect.topLeft + origin + c.center * cell;
     }
 
@@ -73,10 +81,13 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
     }
     for (var i = 0; i < 10; i++) {
-      await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+      await tester.runAsync(
+        () => Future.delayed(const Duration(milliseconds: 50)),
+      );
       await tester.pump(const Duration(milliseconds: 200));
     }
-    await tester.pumpAndSettle();
+    // The mascot animates forever, so wait a fixed time instead of settling.
+    await tester.pump(const Duration(seconds: 2));
 
     expect(find.text('NEXT LEVEL'), findsOneWidget);
     expect(app.unlocked, 2);

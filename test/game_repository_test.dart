@@ -28,12 +28,22 @@ void main() {
     expect(await repo.unlockedLevel(p.id), 1);
     expect(
       await repo.saveResult(
-          playerId: p.id, level: 1, stars: 2, score: 300, timeMs: 9000),
+        playerId: p.id,
+        level: 1,
+        stars: 2,
+        score: 300,
+        timeMs: 9000,
+      ),
       isTrue,
     );
     expect(
       await repo.saveResult(
-          playerId: p.id, level: 1, stars: 3, score: 250, timeMs: 5000),
+        playerId: p.id,
+        level: 1,
+        stars: 3,
+        score: 250,
+        timeMs: 5000,
+      ),
       isFalse,
     );
     expect(await repo.unlockedLevel(p.id), 2);
@@ -47,11 +57,26 @@ void main() {
     final a = await repo.createPlayer('Alice');
     final b = await repo.createPlayer('Bob');
     await repo.saveResult(
-        playerId: a.id, level: 1, stars: 3, score: 100, timeMs: 1);
+      playerId: a.id,
+      level: 1,
+      stars: 3,
+      score: 100,
+      timeMs: 1,
+    );
     await repo.saveResult(
-        playerId: b.id, level: 1, stars: 3, score: 200, timeMs: 1);
+      playerId: b.id,
+      level: 1,
+      stars: 3,
+      score: 200,
+      timeMs: 1,
+    );
     await repo.saveResult(
-        playerId: b.id, level: 2, stars: 1, score: 50, timeMs: 1);
+      playerId: b.id,
+      level: 2,
+      stars: 1,
+      score: 50,
+      timeMs: 1,
+    );
     final board = await repo.leaderboard();
     expect(board.map((e) => e.name), ['Bob', 'Alice']);
     expect(board.first.totalScore, 250);
@@ -63,6 +88,9 @@ void main() {
     expect(await repo.musicOn(), isTrue);
     await repo.setMusic(false);
     expect(await repo.musicOn(), isFalse);
+    expect(await repo.themeMode(), 'system');
+    await repo.setThemeMode('dark');
+    expect(await repo.themeMode(), 'dark');
     await repo.setHints(p.id, 9);
     expect((await repo.playerById(p.id))!.hints, 9);
   });

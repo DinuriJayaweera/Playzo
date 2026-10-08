@@ -89,36 +89,42 @@ class GameRepository {
   // ---- settings ----
 
   Future<String?> _setting(String key) async {
-    final rows =
-        await _db.query('settings', where: 'key = ?', whereArgs: [key]);
+    final rows = await _db.query(
+      'settings',
+      where: 'key = ?',
+      whereArgs: [key],
+    );
     return rows.isEmpty ? null : rows.first['value'] as String;
   }
 
-  Future<void> _setSetting(String key, String value) => _db.insert(
-        'settings',
-        {'key': key, 'value': value},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+  Future<void> _setSetting(String key, String value) => _db.insert('settings', {
+    'key': key,
+    'value': value,
+  }, conflictAlgorithm: ConflictAlgorithm.replace);
 
   Future<bool> musicOn() async => (await _setting('music')) != '0';
   Future<bool> sfxOn() async => (await _setting('sfx')) != '0';
   Future<void> setMusic(bool on) => _setSetting('music', on ? '1' : '0');
   Future<void> setSfx(bool on) => _setSetting('sfx', on ? '1' : '0');
+
+  /// 'system', 'light' or 'dark'.
+  Future<String> themeMode() async => await _setting('theme') ?? 'system';
+  Future<void> setThemeMode(String mode) => _setSetting('theme', mode);
   Future<bool> seenHelp() async => (await _setting('seen_help')) == '1';
   Future<void> markHelpSeen() => _setSetting('seen_help', '1');
 
   // ---- players ----
 
   Player _player(Map<String, Object?> row) => Player(
-        id: row['id'] as int,
-        name: row['name'] as String,
-        hints: row['hints'] as int,
-      );
+    id: row['id'] as int,
+    name: row['name'] as String,
+    hints: row['hints'] as int,
+  );
 
-  Future<List<Player>> players() async =>
-      (await _db.query('players', orderBy: 'name COLLATE NOCASE'))
-          .map(_player)
-          .toList();
+  Future<List<Player>> players() async => (await _db.query(
+    'players',
+    orderBy: 'name COLLATE NOCASE',
+  )).map(_player).toList();
 
   Future<Player?> playerById(int id) async {
     final rows = await _db.query('players', where: 'id = ?', whereArgs: [id]);
@@ -126,8 +132,11 @@ class GameRepository {
   }
 
   Future<Player?> playerByName(String name) async {
-    final rows = await _db.query('players',
-        where: 'name = ? COLLATE NOCASE', whereArgs: [name.trim()]);
+    final rows = await _db.query(
+      'players',
+      where: 'name = ? COLLATE NOCASE',
+      whereArgs: [name.trim()],
+    );
     return rows.isEmpty ? null : _player(rows.first);
   }
 
@@ -156,17 +165,20 @@ class GameRepository {
   Future<void> selectPlayer(int id) => _setSetting('current_player', '$id');
 
   Future<void> setHints(int playerId, int hints) => _db.update(
-        'players',
-        {'hints': hints},
-        where: 'id = ?',
-        whereArgs: [playerId],
-      );
+    'players',
+    {'hints': hints},
+    where: 'id = ?',
+    whereArgs: [playerId],
+  );
 
   // ---- progress ----
 
   Future<Map<int, LevelResult>> results(int playerId) async {
-    final rows = await _db.query('level_results',
-        where: 'player_id = ?', whereArgs: [playerId]);
+    final rows = await _db.query(
+      'level_results',
+      where: 'player_id = ?',
+      whereArgs: [playerId],
+    );
     return {
       for (final r in rows)
         r['level'] as int: LevelResult(
@@ -181,8 +193,9 @@ class GameRepository {
   /// The furthest level the player may play: one past their best clear.
   Future<int> unlockedLevel(int playerId) async {
     final rows = await _db.rawQuery(
-        'SELECT MAX(level) AS m FROM level_results WHERE player_id = ?',
-        [playerId]);
+      'SELECT MAX(level) AS m FROM level_results WHERE player_id = ?',
+      [playerId],
+    );
     return ((rows.first['m'] as int?) ?? 0) + 1;
   }
 
@@ -196,8 +209,11 @@ class GameRepository {
     required int timeMs,
   }) {
     return _db.transaction((txn) async {
-      final rows = await txn.query('level_results',
-          where: 'player_id = ? AND level = ?', whereArgs: [playerId, level]);
+      final rows = await txn.query(
+        'level_results',
+        where: 'player_id = ? AND level = ?',
+        whereArgs: [playerId, level],
+      );
       final now = DateTime.now().millisecondsSinceEpoch;
       if (rows.isEmpty) {
         await txn.insert('level_results', {
@@ -215,8 +231,9 @@ class GameRepository {
         'level_results',
         {
           'stars': stars > (old['stars'] as int) ? stars : old['stars'],
-          'best_score':
-              score > (old['best_score'] as int) ? score : old['best_score'],
+          'best_score': score > (old['best_score'] as int)
+              ? score
+              : old['best_score'],
           'best_time_ms': timeMs < (old['best_time_ms'] as int)
               ? timeMs
               : old['best_time_ms'],
@@ -230,7 +247,8 @@ class GameRepository {
   }
 
   Future<List<LeaderboardEntry>> leaderboard({int limit = 50}) async {
-    final rows = await _db.rawQuery('''
+    final rows = await _db.rawQuery(
+      '''
       SELECT p.id, p.name,
              COALESCE(SUM(r.best_score), 0) AS total,
              COUNT(r.level) AS levels,
@@ -239,15 +257,19 @@ class GameRepository {
       LEFT JOIN level_results r ON r.player_id = p.id
       GROUP BY p.id
       ORDER BY total DESC, levels DESC, p.name COLLATE NOCASE
-      LIMIT ?''', [limit]);
+      LIMIT ?''',
+      [limit],
+    );
     return rows
-        .map((r) => LeaderboardEntry(
-              playerId: r['id'] as int,
-              name: r['name'] as String,
-              totalScore: r['total'] as int,
-              levels: r['levels'] as int,
-              stars: r['stars'] as int,
-            ))
+        .map(
+          (r) => LeaderboardEntry(
+            playerId: r['id'] as int,
+            name: r['name'] as String,
+            totalScore: r['total'] as int,
+            levels: r['levels'] as int,
+            stars: r['stars'] as int,
+          ),
+        )
         .toList();
   }
 }

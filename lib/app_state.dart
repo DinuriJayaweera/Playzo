@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 import 'data/game_repository.dart';
 import 'services/audio_service.dart';
@@ -16,6 +16,7 @@ class AppState extends ChangeNotifier {
   bool musicOn = true;
   bool sfxOn = true;
   bool seenHelp = false;
+  ThemeMode themeMode = ThemeMode.system;
 
   int get hints => player?.hints ?? 0;
   int get totalStars => results.values.fold(0, (s, r) => s + r.stars);
@@ -25,6 +26,7 @@ class AppState extends ChangeNotifier {
     musicOn = await repo.musicOn();
     sfxOn = await repo.sfxOn();
     seenHelp = await repo.seenHelp();
+    themeMode = ThemeMode.values.byName(await repo.themeMode());
     player = await repo.currentPlayer();
     await _loadProgress();
     await audio.init(music: musicOn, sfx: sfxOn);
@@ -98,6 +100,12 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setThemeMode(ThemeMode mode) async {
+    themeMode = mode;
+    await repo.setThemeMode(mode.name);
+    notifyListeners();
+  }
+
   Future<void> markHelpSeen() async {
     seenHelp = true;
     await repo.markHelpSeen();
@@ -108,7 +116,7 @@ class AppState extends ChangeNotifier {
 /// when it changes.
 class AppScope extends InheritedNotifier<AppState> {
   const AppScope({super.key, required AppState state, required super.child})
-      : super(notifier: state);
+    : super(notifier: state);
 
   static AppState of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<AppScope>()!.notifier!;

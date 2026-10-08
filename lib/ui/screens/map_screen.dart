@@ -7,6 +7,7 @@ import '../../game/level_generator.dart';
 import '../../game/shapes.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/mascot.dart';
 import '../widgets/shape_icon.dart';
 import 'game_screen.dart';
 
@@ -35,10 +36,12 @@ class _MapScreenState extends State<MapScreen> {
     if (level > app.unlocked) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('Clear level ${app.unlocked} first to unlock it.'),
-        ));
+        ..showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text('Clear level ${app.unlocked} first to unlock it.'),
+          ),
+        );
       return;
     }
     Navigator.of(context).push(GameScreen.route(level));
@@ -61,64 +64,77 @@ class _MapScreenState extends State<MapScreen> {
               ScreenHeader(
                 title: 'Level Road',
                 trailing: GlassCard(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.star_rounded, color: AppColors.gold),
                       const SizedBox(width: 4),
-                      Text('${app.totalStars}',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                      Text(
+                        '${app.totalStars}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
               Expanded(
-                child: LayoutBuilder(builder: (context, box) {
-                  _scroll ??= ScrollController(
-                    initialScrollOffset: _offsetFor(app.unlocked, box.maxHeight),
-                  );
-                  return Stack(
-                    children: [
-                      ListView.builder(
-                        controller: _scroll,
-                        reverse: true,
-                        itemExtent: _rowHeight,
-                        padding: const EdgeInsets.only(top: 40, bottom: 30),
-                        // No itemCount: the road never ends.
-                        itemBuilder: (context, i) => _RoadRow(
-                          level: i + 1,
-                          width: box.maxWidth,
-                          unlocked: app.unlocked,
-                          stars: app.results[i + 1]?.stars,
-                          onTap: () => _play(i + 1),
-                        ),
+                child: LayoutBuilder(
+                  builder: (context, box) {
+                    _scroll ??= ScrollController(
+                      initialScrollOffset: _offsetFor(
+                        app.unlocked,
+                        box.maxHeight,
                       ),
-                      Positioned(
-                        right: 16,
-                        bottom: 16,
-                        child: GameButton(
-                          label: 'LEVEL ${app.unlocked}',
-                          icon: Icons.play_arrow_rounded,
-                          onTap: () => _play(app.unlocked),
-                        ),
-                      ),
-                      Positioned(
-                        left: 16,
-                        bottom: 20,
-                        child: RoundButton(
-                          icon: Icons.my_location_rounded,
-                          tooltip: 'Jump to current level',
-                          onTap: () => _scroll?.animateTo(
-                            _offsetFor(app.unlocked, box.maxHeight),
-                            duration: const Duration(milliseconds: 600),
-                            curve: Curves.easeInOutCubic,
+                    );
+                    return Stack(
+                      children: [
+                        ListView.builder(
+                          controller: _scroll,
+                          reverse: true,
+                          itemExtent: _rowHeight,
+                          padding: const EdgeInsets.only(top: 40, bottom: 30),
+                          // No itemCount: the road never ends.
+                          itemBuilder: (context, i) => _RoadRow(
+                            level: i + 1,
+                            width: box.maxWidth,
+                            unlocked: app.unlocked,
+                            stars: app.results[i + 1]?.stars,
+                            onTap: () => _play(i + 1),
                           ),
                         ),
-                      ),
-                    ],
-                  );
-                }),
+                        Positioned(
+                          right: 16,
+                          bottom: 16,
+                          child: GameButton(
+                            label: 'LEVEL ${app.unlocked}',
+                            icon: Icons.play_arrow_rounded,
+                            onTap: () => _play(app.unlocked),
+                          ),
+                        ),
+                        Positioned(
+                          left: 16,
+                          bottom: 20,
+                          child: RoundButton(
+                            icon: Icons.my_location_rounded,
+                            tooltip: 'Jump to current level',
+                            onTap: () => _scroll?.animateTo(
+                              _offsetFor(app.unlocked, box.maxHeight),
+                              duration: const Duration(milliseconds: 600),
+                              curve: Curves.easeInOutCubic,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -148,7 +164,18 @@ class _RoadRow extends StatelessWidget {
     final x = _nodeX(level, width);
     final shape = shapeForLevel(level);
     final rnd = Random(level * 31);
-    const decorations = ['🌸', '🌴', '⭐', '🎈', '🍄', '💎', '🌈', '🍭', '🚀', '🎵'];
+    const decorations = [
+      '🌸',
+      '🌴',
+      '⭐',
+      '🎈',
+      '🍄',
+      '💎',
+      '🌈',
+      '🍭',
+      '🚀',
+      '🎵',
+    ];
     final deco = decorations[rnd.nextInt(decorations.length)];
     final decoX = x < width / 2 ? width * 0.78 : width * 0.12;
     return Stack(
@@ -167,7 +194,19 @@ class _RoadRow extends StatelessWidget {
           Positioned(
             left: decoX,
             top: _rowHeight / 2 - 18,
-            child: Opacity(opacity: 0.8, child: Text(deco, style: const TextStyle(fontSize: 28))),
+            child: Opacity(
+              opacity: 0.8,
+              child: Text(deco, style: const TextStyle(fontSize: 28)),
+            ),
+          ),
+        // Arrowy stands beside the current level: "you are here".
+        if (level == unlocked)
+          Positioned(
+            left: x < width / 2 ? x + 40 : x - 100,
+            top: _rowHeight / 2 - 50,
+            child: const IgnorePointer(
+              child: Mascot(pose: MascotPose.wave, size: 72),
+            ),
           ),
         Positioned(
           left: x - 40,
@@ -177,8 +216,8 @@ class _RoadRow extends StatelessWidget {
             state: level < unlocked
                 ? _NodeState.done
                 : level == unlocked
-                    ? _NodeState.current
-                    : _NodeState.locked,
+                ? _NodeState.current
+                : _NodeState.locked,
             stars: stars ?? 0,
             shape: shape,
             onTap: onTap,
@@ -208,9 +247,13 @@ class _RoadPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawPath(path, stroke(Colors.black.withValues(alpha: 0.25), 30));
     canvas.drawPath(
-        path, stroke(lit ? const Color(0xFFFF9F1C) : const Color(0xFF8B7FC7), 24));
+      path,
+      stroke(lit ? const Color(0xFFFF9F1C) : const Color(0xFF8B7FC7), 24),
+    );
     canvas.drawPath(
-        path, stroke(lit ? AppColors.gold : const Color(0xFFB4A9E6), 16));
+      path,
+      stroke(lit ? AppColors.gold : const Color(0xFFB4A9E6), 16),
+    );
     // Dashed centre line.
     final dash = stroke(Colors.white.withValues(alpha: lit ? 0.9 : 0.45), 3);
     for (final metric in path.computeMetrics()) {
@@ -246,7 +289,8 @@ class _LevelNode extends StatefulWidget {
   State<_LevelNode> createState() => _LevelNodeState();
 }
 
-class _LevelNodeState extends State<_LevelNode> with SingleTickerProviderStateMixin {
+class _LevelNodeState extends State<_LevelNode>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _pulse = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 900),
@@ -277,9 +321,18 @@ class _LevelNodeState extends State<_LevelNode> with SingleTickerProviderStateMi
   @override
   Widget build(BuildContext context) {
     final (List<Color> colors, Color rim) = switch (widget.state) {
-      _NodeState.done => (const [Color(0xFFFFD25E), Color(0xFFFF9F1C)], const Color(0xFFB45309)),
-      _NodeState.current => (const [Color(0xFFFF7A9A), Color(0xFFFF2E63)], const Color(0xFF9F1239)),
-      _NodeState.locked => (const [Color(0xFFA79BD8), Color(0xFF7A6DB5)], const Color(0xFF4C3F8F)),
+      _NodeState.done => (
+        const [Color(0xFFFFD25E), Color(0xFFFF9F1C)],
+        const Color(0xFFB45309),
+      ),
+      _NodeState.current => (
+        const [Color(0xFFFF7A9A), Color(0xFFFF2E63)],
+        const Color(0xFF9F1239),
+      ),
+      _NodeState.locked => (
+        const [Color(0xFFA79BD8), Color(0xFF7A6DB5)],
+        const Color(0xFF4C3F8F),
+      ),
     };
     final current = widget.state == _NodeState.current;
     return GestureDetector(
@@ -304,7 +357,10 @@ class _LevelNodeState extends State<_LevelNode> with SingleTickerProviderStateMi
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     boxShadow: [
-                      BoxShadow(color: const Color(0xFFFF2E63).withValues(alpha: 0.6), blurRadius: 24),
+                      BoxShadow(
+                        color: const Color(0xFFFF2E63).withValues(alpha: 0.6),
+                        blurRadius: 24,
+                      ),
                     ],
                   ),
                 ),
@@ -319,18 +375,26 @@ class _LevelNodeState extends State<_LevelNode> with SingleTickerProviderStateMi
                     colors: colors,
                   ),
                   border: Border.all(color: Colors.white, width: 4),
-                  boxShadow: [BoxShadow(color: rim, offset: const Offset(0, 5))],
+                  boxShadow: [
+                    BoxShadow(color: rim, offset: const Offset(0, 5)),
+                  ],
                 ),
                 alignment: Alignment.center,
                 child: widget.state == _NodeState.locked
-                    ? const Icon(Icons.lock_rounded, color: Colors.white, size: 26)
+                    ? const Icon(
+                        Icons.lock_rounded,
+                        color: Colors.white,
+                        size: 26,
+                      )
                     : Text(
                         '${widget.level}',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: widget.level > 999 ? 16 : 22,
                           fontWeight: FontWeight.w900,
-                          shadows: const [Shadow(blurRadius: 3, offset: Offset(0, 1))],
+                          shadows: const [
+                            Shadow(blurRadius: 3, offset: Offset(0, 1)),
+                          ],
                         ),
                       ),
               ),
@@ -344,25 +408,42 @@ class _LevelNodeState extends State<_LevelNode> with SingleTickerProviderStateMi
                   decoration: BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
-                    boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black26, blurRadius: 4),
+                    ],
                   ),
-                  child: ShapeIcon(shape: widget.shape, size: 15, color: colors.last),
+                  child: ShapeIcon(
+                    shape: widget.shape,
+                    size: 15,
+                    color: colors.last,
+                  ),
                 ),
               ),
               if (widget.state == _NodeState.done)
-                Positioned(bottom: -12, child: StarsRow(stars: widget.stars, size: 20)),
+                Positioned(
+                  bottom: -12,
+                  child: StarsRow(stars: widget.stars, size: 20),
+                ),
               if (current)
                 Positioned(
                   bottom: -14,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Text('PLAY',
-                        style: TextStyle(
-                            color: Color(0xFFFF2E63), fontWeight: FontWeight.w900, fontSize: 12)),
+                    child: const Text(
+                      'PLAY',
+                      style: TextStyle(
+                        color: Color(0xFFFF2E63),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 ),
             ],

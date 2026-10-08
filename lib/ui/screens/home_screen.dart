@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app_state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/mascot.dart';
 import 'game_screen.dart';
 import 'help_screen.dart';
 import 'leaderboard_screen.dart';
@@ -16,7 +17,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _bob = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1600),
@@ -65,54 +67,110 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 Row(
                   children: [
                     GlassCard(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.person_rounded, color: Colors.white, size: 20),
+                          const Icon(
+                            Icons.person_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                           const SizedBox(width: 6),
                           ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 120),
-                            child: Text(app.player?.name ?? '...',
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                            child: Text(
+                              app.player?.name ?? '...',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
                     const Spacer(),
-                    _Stat(icon: Icons.star_rounded, color: AppColors.gold, value: '${app.totalStars}'),
+                    _Stat(
+                      icon: Icons.star_rounded,
+                      color: AppColors.gold,
+                      value: '${app.totalStars}',
+                    ),
                     const SizedBox(width: 8),
-                    _Stat(icon: Icons.lightbulb_rounded, color: AppColors.gold, value: '${app.hints}'),
+                    _Stat(
+                      icon: Icons.lightbulb_rounded,
+                      color: AppColors.gold,
+                      value: '${app.hints}',
+                    ),
+                    const SizedBox(width: 8),
+                    RoundButton(
+                      icon: Theme.of(context).brightness == Brightness.dark
+                          ? Icons.light_mode_rounded
+                          : Icons.dark_mode_rounded,
+                      size: 40,
+                      tooltip: 'Light / dark',
+                      onTap: () => app.setThemeMode(
+                        Theme.of(context).brightness == Brightness.dark
+                            ? ThemeMode.light
+                            : ThemeMode.dark,
+                      ),
+                    ),
                   ],
                 ),
                 const Spacer(flex: 2),
                 AnimatedBuilder(
                   animation: _bob,
                   builder: (_, child) => Transform.translate(
-                    offset: Offset(0, -8 * Curves.easeInOut.transform(_bob.value)),
+                    offset: Offset(
+                      0,
+                      -8 * Curves.easeInOut.transform(_bob.value),
+                    ),
                     child: child,
                   ),
                   child: const _Logo(),
                 ),
                 const SizedBox(height: 8),
-                const Text('Tap. Slide. Escape!',
-                    style: TextStyle(color: Colors.white70, fontSize: 16, letterSpacing: 1)),
-                const Spacer(flex: 2),
+                const Text(
+                  'Tap. Slide. Escape!',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const Spacer(),
+                MascotSays(
+                  text: app.player == null
+                      ? 'Hi there!'
+                      : 'Hi ${app.player!.name}!\nReady for level ${app.unlocked}?',
+                  pose: MascotPose.wave,
+                  size: 112,
+                  bubbleColor: context.palette.surface,
+                  textColor: context.palette.ink,
+                ),
+                const Spacer(),
                 GameButton(
                   label: 'PLAY  ·  LEVEL ${app.unlocked}',
                   icon: Icons.play_arrow_rounded,
                   big: true,
                   onTap: app.player == null
                       ? null
-                      : () => Navigator.of(context).push(GameScreen.route(app.unlocked)),
+                      : () =>
+                            Navigator.of(context)
+                                .push(GameScreen.route(app.unlocked)),
                 ),
                 const SizedBox(height: 16),
                 GameButton(
                   label: 'LEVEL ROAD',
                   icon: Icons.route_rounded,
                   color: const Color(0xFFFF9F1C),
-                  onTap: app.player == null ? null : () => _open(const MapScreen()),
+                  onTap: app.player == null
+                      ? null
+                      : () => _open(const MapScreen()),
                 ),
                 const Spacer(),
                 Row(
@@ -131,7 +189,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       onTap: () => showHelpSheet(context),
                     ),
                     _MenuIcon(
-                      icon: app.musicOn ? Icons.music_note_rounded : Icons.music_off_rounded,
+                      icon: app.musicOn
+                          ? Icons.music_note_rounded
+                          : Icons.music_off_rounded,
                       label: 'Music',
                       color: const Color(0xFFFF4D6D),
                       onTap: () => app.setMusic(!app.musicOn),
@@ -159,41 +219,22 @@ class _Logo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (final (icon, color) in const [
-              (Icons.arrow_upward_rounded, Color(0xFFFF4D6D)),
-              (Icons.arrow_forward_rounded, Color(0xFFFFC300)),
-              (Icons.arrow_downward_rounded, Color(0xFF06D6A0)),
-              (Icons.arrow_back_rounded, Color(0xFF3A86FF)),
-            ])
-              Container(
-                margin: const EdgeInsets.all(4),
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(color: Color.lerp(color, Colors.black, 0.4)!, offset: const Offset(0, 4)),
-                  ],
-                ),
-                child: Icon(icon, color: Colors.white, size: 32),
-              ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        const GradientText(
+        GradientText(
           'ARROW\nESCAPE',
           style: TextStyle(
             fontSize: 58,
             fontWeight: FontWeight.w900,
             height: 0.95,
             letterSpacing: 3,
-            shadows: [Shadow(color: Colors.black45, blurRadius: 12, offset: Offset(0, 4))],
+            shadows: [
+              Shadow(
+                color: Colors.black45,
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
           ),
         ),
       ],
@@ -216,7 +257,13 @@ class _Stat extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(width: 4),
-          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
         ],
       ),
     );
@@ -224,7 +271,12 @@ class _Stat extends StatelessWidget {
 }
 
 class _MenuIcon extends StatelessWidget {
-  const _MenuIcon({required this.icon, required this.label, required this.color, required this.onTap});
+  const _MenuIcon({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
   final IconData icon;
   final String label;
   final Color color;
@@ -235,9 +287,21 @@ class _MenuIcon extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        RoundButton(icon: icon, color: color, iconColor: Colors.white, size: 58, onTap: onTap),
+        RoundButton(
+          icon: icon,
+          color: color,
+          iconColor: Colors.white,
+          size: 58,
+          onTap: onTap,
+        ),
         const SizedBox(height: 6),
-        Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ],
     );
   }

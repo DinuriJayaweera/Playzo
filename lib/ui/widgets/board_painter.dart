@@ -67,8 +67,8 @@ class ArrowMotion {
     required this.start,
     required this.distance,
   }) : duration = kind == MotionKind.escape
-            ? (distance / 20).clamp(0.3, 0.9)
-            : 0.22 + distance * 0.03;
+           ? (distance / 20).clamp(0.3, 0.9)
+           : 0.22 + distance * 0.03;
 
   final ArrowTrack track;
   final MotionKind kind;
@@ -84,7 +84,9 @@ class ArrowMotion {
 
   double shift(double now) {
     final t = progress(now);
-    if (kind == MotionKind.escape) return Curves.easeInCubic.transform(t) * distance;
+    if (kind == MotionKind.escape) {
+      return Curves.easeInCubic.transform(t) * distance;
+    }
     return sin(pi * t) * distance;
   }
 }
@@ -100,6 +102,7 @@ class BoardScene {
     this.hintStart = 0,
     this.flashIds = const {},
     this.flashStart = 0,
+    this.dotColor = const Color(0xFFCBC3E3),
   });
 
   final Level level;
@@ -112,6 +115,7 @@ class BoardScene {
   final double hintStart;
   final Set<int> flashIds;
   final double flashStart;
+  final Color dotColor;
 }
 
 class BoardPainter extends CustomPainter {
@@ -133,8 +137,8 @@ class BoardPainter extends CustomPainter {
     canvas.scale(cell);
 
     // The dotted canvas: faint dots everywhere, bolder ones inside the shape.
-    final faint = Paint()..color = AppColors.dot.withValues(alpha: 0.35);
-    final dot = Paint()..color = AppColors.dot;
+    final faint = Paint()..color = scene.dotColor.withValues(alpha: 0.35);
+    final dot = Paint()..color = scene.dotColor;
     for (var y = 0; y < level.height; y++) {
       for (var x = 0; x < level.width; x++) {
         final c = Cell(x, y);
@@ -181,10 +185,14 @@ class BoardPainter extends CustomPainter {
     final normal = Offset(-dir.dy, dir.dx);
     final head = Path()
       ..moveTo(end.dx + dir.dx * 0.34, end.dy + dir.dy * 0.34)
-      ..lineTo(end.dx + normal.dx * 0.27 - dir.dx * 0.06,
-          end.dy + normal.dy * 0.27 - dir.dy * 0.06)
-      ..lineTo(end.dx - normal.dx * 0.27 - dir.dx * 0.06,
-          end.dy - normal.dy * 0.27 - dir.dy * 0.06)
+      ..lineTo(
+        end.dx + normal.dx * 0.27 - dir.dx * 0.06,
+        end.dy + normal.dy * 0.27 - dir.dy * 0.06,
+      )
+      ..lineTo(
+        end.dx - normal.dx * 0.27 - dir.dx * 0.06,
+        end.dy - normal.dy * 0.27 - dir.dy * 0.06,
+      )
       ..close();
 
     if (glow > 0) {
@@ -233,7 +241,11 @@ class BoardPainter extends CustomPainter {
     canvas.drawPath(path, shine);
     canvas.restore();
     // A small tail cap so each arrow's start is easy to see.
-    canvas.drawCircle(pts.first, 0.1, Paint()..color = Colors.white.withValues(alpha: 0.7));
+    canvas.drawCircle(
+      pts.first,
+      0.1,
+      Paint()..color = Colors.white.withValues(alpha: 0.7),
+    );
   }
 
   @override

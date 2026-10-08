@@ -5,14 +5,22 @@ import '../../game/shapes.dart';
 /// A tiny dot-matrix picture of a board shape, built from the shape's own
 /// outline so it always matches the level.
 class ShapeIcon extends StatelessWidget {
-  const ShapeIcon({super.key, required this.shape, this.size = 16, this.color = Colors.white});
+  const ShapeIcon({
+    super.key,
+    required this.shape,
+    this.size = 16,
+    this.color = Colors.white,
+  });
   final BoardShape shape;
   final double size;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(size: Size.square(size), painter: _ShapePainter(shape, color));
+    return CustomPaint(
+      size: Size.square(size),
+      painter: _ShapePainter(shape, color),
+    );
   }
 }
 
@@ -39,5 +47,6 @@ class _ShapePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_ShapePainter old) => old.shape != shape || old.color != color;
+  bool shouldRepaint(_ShapePainter old) =>
+      old.shape != shape || old.color != color;
 }

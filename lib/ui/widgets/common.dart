@@ -36,12 +36,14 @@ class _GradientBackgroundState extends State<GradientBackground>
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
+    final palette = context.palette;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppColors.bgTop, AppColors.bgMid, AppColors.bgBottom],
+          colors: [palette.bgTop, palette.bgMid, palette.bgBottom],
         ),
       ),
       child: Stack(
@@ -50,7 +52,9 @@ class _GradientBackgroundState extends State<GradientBackground>
           if (widget.drift)
             IgnorePointer(
               child: RepaintBoundary(
-                child: CustomPaint(painter: _DriftPainter(_c)),
+                child: CustomPaint(
+                  painter: _DriftPainter(_c, palette.driftAlpha),
+                ),
               ),
             ),
           widget.child,
@@ -61,17 +65,21 @@ class _GradientBackgroundState extends State<GradientBackground>
 }
 
 class _DriftPainter extends CustomPainter {
-  _DriftPainter(this.anim) : super(repaint: anim);
+  _DriftPainter(this.anim, this.alpha) : super(repaint: anim);
   final Animation<double> anim;
+  final double alpha;
 
   @override
   void paint(Canvas canvas, Size size) {
     final rnd = Random(7);
     for (var i = 0; i < 16; i++) {
-      final color = arrowColors[i % arrowColors.length].withValues(alpha: 0.16);
+      final color = arrowColors[i % arrowColors.length].withValues(
+        alpha: alpha,
+      );
       final x = rnd.nextDouble() * size.width;
       final speed = 0.5 + rnd.nextDouble();
-      final y = ((rnd.nextDouble() - anim.value * speed) % 1.0) *
+      final y =
+          ((rnd.nextDouble() - anim.value * speed) % 1.0) *
               (size.height + 120) -
           60;
       final len = 26.0 + rnd.nextDouble() * 40;
@@ -94,7 +102,7 @@ class _DriftPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_DriftPainter old) => false;
+  bool shouldRepaint(_DriftPainter old) => old.alpha != alpha;
 }
 
 /// A chunky, glossy game button with a pressed-down effect.
@@ -153,7 +161,9 @@ class _GameButtonState extends State<GameButton> {
       ],
     );
     return GestureDetector(
-      onTapDown: widget.onTap == null ? null : (_) => setState(() => _down = true),
+      onTapDown: widget.onTap == null
+          ? null
+          : (_) => setState(() => _down = true),
       onTapCancel: () => setState(() => _down = false),
       onTapUp: (_) => setState(() => _down = false),
       onTap: widget.onTap == null
@@ -164,7 +174,10 @@ class _GameButtonState extends State<GameButton> {
             },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 80),
-        margin: EdgeInsets.only(top: _down ? depth : 0, bottom: _down ? 0 : depth),
+        margin: EdgeInsets.only(
+          top: _down ? depth : 0,
+          bottom: _down ? 0 : depth,
+        ),
         padding: EdgeInsets.symmetric(
           horizontal: widget.big ? 34 : 20,
           vertical: widget.big ? 16 : 12,
@@ -174,7 +187,9 @@ class _GameButtonState extends State<GameButton> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: widget.onTap == null ? [Colors.grey, Colors.grey] : [light, base],
+            colors: widget.onTap == null
+                ? [Colors.grey, Colors.grey]
+                : [light, base],
           ),
           boxShadow: [
             BoxShadow(color: dark, offset: Offset(0, _down ? 0 : depth)),
@@ -197,8 +212,8 @@ class RoundButton extends StatelessWidget {
     super.key,
     required this.icon,
     required this.onTap,
-    this.color = Colors.white,
-    this.iconColor = AppColors.ink,
+    this.color,
+    this.iconColor,
     this.badge,
     this.size = 48,
     this.tooltip,
@@ -206,14 +221,17 @@ class RoundButton extends StatelessWidget {
 
   final IconData icon;
   final VoidCallback? onTap;
-  final Color color;
-  final Color iconColor;
+
+  /// Defaults to the theme's button colours.
+  final Color? color;
+  final Color? iconColor;
   final String? badge;
   final double size;
   final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final button = GestureDetector(
       onTap: onTap == null
           ? null
@@ -228,7 +246,7 @@ class RoundButton extends StatelessWidget {
             width: size,
             height: size,
             decoration: BoxDecoration(
-              color: color,
+              color: color ?? palette.button,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
@@ -238,7 +256,11 @@ class RoundButton extends StatelessWidget {
                 ),
               ],
             ),
-            child: Icon(icon, color: iconColor, size: size * 0.55),
+            child: Icon(
+              icon,
+              color: iconColor ?? palette.buttonIcon,
+              size: size * 0.55,
+            ),
           ),
           if (badge != null)
             Positioned(
@@ -270,7 +292,12 @@ class RoundButton extends StatelessWidget {
 
 /// Lives left this level. A lost heart pops and fades to grey.
 class HeartsRow extends StatelessWidget {
-  const HeartsRow({super.key, required this.hearts, this.max = 3, this.size = 26});
+  const HeartsRow({
+    super.key,
+    required this.hearts,
+    this.max = 3,
+    this.size = 26,
+  });
   final int hearts;
   final int max;
   final double size;
@@ -290,9 +317,17 @@ class HeartsRow extends StatelessWidget {
             child: Icon(
               alive ? Icons.favorite : Icons.heart_broken,
               size: size,
-              color: alive ? AppColors.heart : Colors.white.withValues(alpha: 0.3),
+              color: alive
+                  ? AppColors.heart
+                  : Colors.white.withValues(alpha: 0.3),
               shadows: alive
-                  ? const [Shadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2))]
+                  ? const [
+                      Shadow(
+                        color: Colors.black38,
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ]
                   : null,
             ),
           ),
@@ -303,7 +338,12 @@ class HeartsRow extends StatelessWidget {
 }
 
 class StarsRow extends StatelessWidget {
-  const StarsRow({super.key, required this.stars, this.size = 16, this.gap = 0});
+  const StarsRow({
+    super.key,
+    required this.stars,
+    this.size = 16,
+    this.gap = 0,
+  });
   final int stars;
   final double size;
   final double gap;
@@ -329,7 +369,12 @@ class StarsRow extends StatelessWidget {
 
 /// A frosted-glass panel used for headers and list rows.
 class GlassCard extends StatelessWidget {
-  const GlassCard({super.key, required this.child, this.padding = const EdgeInsets.all(16), this.color});
+  const GlassCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+    this.color,
+  });
   final Widget child;
   final EdgeInsets padding;
   final Color? color;
@@ -339,7 +384,7 @@ class GlassCard extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: color ?? Colors.white.withValues(alpha: 0.12),
+        color: color ?? context.palette.glass,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
       ),
@@ -359,9 +404,15 @@ class GradientText extends StatelessWidget {
   Widget build(BuildContext context) {
     return ShaderMask(
       shaderCallback: (r) => LinearGradient(
-        colors: colors ?? const [Color(0xFFFFE066), Color(0xFFFF6B9A), Color(0xFF7AE7FF)],
+        colors:
+            colors ??
+            const [Color(0xFFFFE066), Color(0xFFFF6B9A), Color(0xFF7AE7FF)],
       ).createShader(r),
-      child: Text(text, textAlign: TextAlign.center, style: style.copyWith(color: Colors.white)),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: style.copyWith(color: Colors.white),
+      ),
     );
   }
 }

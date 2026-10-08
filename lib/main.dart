@@ -10,10 +10,12 @@ import 'ui/theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ),
+  );
   final repo = await GameRepository.open();
   final state = AppState(repo, AudioService());
   await state.load();
@@ -28,7 +30,8 @@ class ArrowEscapeApp extends StatefulWidget {
   State<ArrowEscapeApp> createState() => _ArrowEscapeAppState();
 }
 
-class _ArrowEscapeAppState extends State<ArrowEscapeApp> with WidgetsBindingObserver {
+class _ArrowEscapeAppState extends State<ArrowEscapeApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -51,11 +54,16 @@ class _ArrowEscapeAppState extends State<ArrowEscapeApp> with WidgetsBindingObse
   Widget build(BuildContext context) {
     return AppScope(
       state: widget.state,
-      child: MaterialApp(
-        title: 'Arrow Escape',
-        debugShowCheckedModeBanner: false,
-        theme: buildTheme(),
-        home: const HomeScreen(),
+      child: ListenableBuilder(
+        listenable: widget.state,
+        builder: (context, _) => MaterialApp(
+          title: 'Arrow Escape',
+          debugShowCheckedModeBanner: false,
+          theme: buildTheme(Brightness.light),
+          darkTheme: buildTheme(Brightness.dark),
+          themeMode: widget.state.themeMode,
+          home: const HomeScreen(),
+        ),
       ),
     );
   }

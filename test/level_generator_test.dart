@@ -43,7 +43,8 @@ void main() {
           expect(used.add(c), isTrue, reason: 'cells overlap on level $n');
         }
         for (var i = 1; i < a.cells.length; i++) {
-          final d = (a.cells[i].x - a.cells[i - 1].x).abs() +
+          final d =
+              (a.cells[i].x - a.cells[i - 1].x).abs() +
               (a.cells[i].y - a.cells[i - 1].y).abs();
           expect(d, 1, reason: 'arrow cells must be adjacent');
         }
